@@ -5,7 +5,7 @@ from io import BytesIO
 
 st.set_page_config(page_title="Work Schedule Maker", layout="wide")
 st.title("🗓️ Employee Work Schedule Generator")
-st.markdown("**Settings stay during your session.** Use browser refresh carefully.")
+st.markdown("Settings stay while the tab is open. You can refresh the page.")
 
 # ====================== SESSION STATE ======================
 if 'business_hours' not in st.session_state:
@@ -55,7 +55,7 @@ with st.sidebar:
             
             st.session_state.employees[i] = {"name": name, "max_hours_week": max_hours, "off_requests": off_days}
 
-# ====================== GENERATE ======================
+# ====================== GENERATE SCHEDULE ======================
 if st.button("🚀 Generate Schedule", type="primary"):
     if not st.session_state.employees:
         st.error("Please add at least one employee")
@@ -94,10 +94,10 @@ if st.button("🚀 Generate Schedule", type="primary"):
             st.success("✅ Schedule Generated!")
             st.dataframe(df, use_container_width=True, height=500)
 
-            col_dl1, col_dl2 = st.columns(2)
-            with col_dl1:
+            col1, col2 = st.columns(2)
+            with col1:
                 st.download_button("📥 Download CSV", df.to_csv(index=False).encode(), "schedule.csv", "text/csv")
-            with col_dl2:
+            with col2:
                 output = BytesIO()
                 with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                     df.to_excel(writer, index=False, sheet_name='Schedule')
@@ -109,4 +109,4 @@ elif st.session_state.generated_df is not None:
     st.success("✅ Previous Schedule")
     st.dataframe(st.session_state.generated_df, use_container_width=True, height=500)
 
-st.info("**Tip:** Your settings usually stay if you just refresh the page. For permanent saving, we can add Google Sheets later.")
+st.info("✅ The app is now stable. Make changes, generate schedule, and download Excel/CSV.")

@@ -6,7 +6,6 @@ import json
 
 st.set_page_config(page_title="Work Schedule Maker", layout="wide")
 st.title("🗓️ Employee Work Schedule Generator")
-st.markdown("**Download & Upload** your settings to make them permanent.")
 
 # ====================== SESSION STATE ======================
 if 'business_hours' not in st.session_state:
@@ -18,13 +17,13 @@ if 'generated_df' not in st.session_state:
 
 days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
-# ====================== SAVE / LOAD ======================
+# ====================== SAVE & LOAD ======================
 st.subheader("💾 Save & Load Settings")
 
 col1, col2 = st.columns(2)
 
 with col1:
-    if st.button("💾 Prepare Download File", help="Click this first, then download"):
+    if st.button("💾 Prepare Download File"):
         save_data = {
             "business_hours": st.session_state.business_hours,
             "employees": st.session_state.employees
@@ -35,20 +34,22 @@ with col1:
             data=json_str,
             file_name="schedule_settings.json",
             mime="application/json",
-            key="download_json"
+            key="download_btn"
         )
 
 with col2:
-    uploaded_file = st.file_uploader("📤 Upload your saved JSON file", type=["json"], key="uploader")
+    uploaded_file = st.file_uploader("📤 Upload saved settings file", type=["json"], key="json_uploader")
+    
     if uploaded_file is not None:
-        try:
-            loaded = json.load(uploaded_file)
-            st.session_state.business_hours = loaded.get("business_hours", {})
-            st.session_state.employees = loaded.get("employees", [])
-            st.success("✅ Settings Loaded Successfully!")
-            st.rerun()
-        except Exception as e:
-            st.error(f"Invalid file. Make sure you upload the correct schedule_settings.json file.\nError: {e}")
+        if st.button("✅ Load This File"):
+            try:
+                loaded = json.load(uploaded_file)
+                st.session_state.business_hours = loaded.get("business_hours", {})
+                st.session_state.employees = loaded.get("employees", [])
+                st.success("✅ Settings Loaded Successfully!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error loading file: {e}")
 
 # ====================== SIDEBAR ======================
 with st.sidebar:
@@ -82,13 +83,13 @@ with st.sidebar:
     for i in range(num_employees):
         emp = st.session_state.employees[i]
         with st.expander(f"Employee {i+1}: {emp.get('name', 'New')}"):
-            name = st.text_input("Name", value=emp.get("name", ""), key=f"name_{i}")
+            name = st.text_input("Name", value=emp.get("name", f"Employee {i+1}"), key=f"name_{i}")
             max_hours = st.number_input("Max hours per week", min_value=1, value=emp.get("max_hours_week", 40), key=f"hours_{i}")
             off_days = st.multiselect("Days off this week", days, default=emp.get("off_requests", []), key=f"off_{i}")
             
             st.session_state.employees[i] = {"name": name, "max_hours_week": max_hours, "off_requests": off_days}
 
-# ====================== GENERATE SCHEDULE ======================
+# ====================== GENERATE ======================
 if st.button("🚀 Generate Schedule", type="primary"):
     if not st.session_state.employees:
         st.error("Please add at least one employee")
@@ -104,7 +105,7 @@ if st.button("🚀 Generate Schedule", type="primary"):
                         row[day] = "OFF"
                         row[f"{day}_hours"] = 0
                     else:
-                        open_t, close_t = st.session_state.business_hours[day]
+                        open_t, close_t = st.session_state.business_hours.get(day, ("09:00", "17:00"))
                         open_time = datetime.strptime(open_t, "%H:%M")
                         close_time = datetime.strptime(close_t, "%H:%M")
                         hours = (close_time - open_time).seconds / 3600
@@ -142,4 +143,7 @@ elif st.session_state.generated_df is not None:
     st.success("✅ Previous Schedule")
     st.dataframe(st.session_state.generated_df, use_container_width=True, height=500)
 
-st.info("**How to save & load:**\n1. Make all your changes\n2. Click **Prepare Download File**\n3. Click the blue **Download** button\n4. Refresh page\n5. Upload the downloaded .json file")
+st.info("""**How to use Save/Load:**
+1. Make changes → Click **Prepare Download File** → Click the blue download button
+2. Refresh page
+3. Upload the JSON file → Click **Load This File**""")

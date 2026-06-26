@@ -33,22 +33,20 @@ with col1:
             label="⬇️ Download schedule_settings.json",
             data=json_str,
             file_name="schedule_settings.json",
-            mime="application/json",
-            key="download_btn"
+            mime="application/json"
         )
 
 with col2:
-    uploaded_file = st.file_uploader("📤 Upload your saved settings file", type=["json"], key="json_uploader")
-    
+    uploaded_file = st.file_uploader("📤 Upload saved settings", type=["json"], key="json_uploader")
     if uploaded_file is not None:
         try:
             loaded = json.load(uploaded_file)
             st.session_state.business_hours = loaded.get("business_hours", {})
             st.session_state.employees = loaded.get("employees", [])
-            st.success("✅ Settings Loaded Successfully!")
-            st.rerun()   # This forces the page to refresh with new data
+            st.success("✅ Settings Loaded! Refreshing...")
+            st.rerun()
         except Exception as e:
-            st.error(f"Error loading file: {e}")
+            st.error(f"Error loading file: {str(e)}")
 
 # ====================== SIDEBAR ======================
 with st.sidebar:
@@ -142,4 +140,4 @@ elif st.session_state.generated_df is not None:
     st.success("✅ Previous Schedule")
     st.dataframe(st.session_state.generated_df, use_container_width=True, height=500)
 
-st.info("**How to use:**\n1. Make changes → Prepare Download File → Download JSON\n2. Refresh page\n3. Upload the JSON file → It should load automatically")
+st.info("**Save/Load Instructions:**\n1. Make changes\n2. Prepare Download → Download JSON\n3. Refresh page\n4. Upload JSON file (it should load automatically)")

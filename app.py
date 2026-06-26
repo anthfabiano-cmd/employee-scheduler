@@ -1,13 +1,12 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
-import json
 
 st.set_page_config(page_title="Work Schedule Maker", layout="wide")
 st.title("🗓️ Employee Work Schedule Generator")
-st.markdown("Adjust hours, add employees, and generate schedules. Data persists on refresh!")
+st.markdown("Settings persist on refresh!")
 
-# ====================== SESSION STATE INITIALIZATION ======================
+# ====================== SESSION STATE ======================
 if 'business_hours' not in st.session_state:
     st.session_state.business_hours = {}
 if 'employees' not in st.session_state:
@@ -23,10 +22,14 @@ with st.sidebar:
     for day in days:
         col1, col2 = st.columns(2)
         with col1:
-            default_open = datetime.strptime(st.session_state.business_hours.get(day, ("09:00", "17:00"))[0], "%H:%M").time()
+            default_open = datetime.strptime(
+                st.session_state.business_hours.get(day, ("09:00", "17:00"))[0], "%H:%M"
+            ).time()
             open_time = st.time_input(f"{day} Open", value=default_open, key=f"open_{day}")
         with col2:
-            default_close = datetime.strptime(st.session_state.business_hours.get(day, ("09:00", "17:00"))[1], "%H:%M").time()
+            default_close = datetime.strptime(
+                st.session_state.business_hours.get(day, ("09:00", "17:00"))[1], "%H:%M"
+            ).time()
             close_time = st.time_input(f"{day} Close", value=default_close, key=f"close_{day}")
         
         st.session_state.business_hours[day] = (open_time.strftime("%H:%M"), close_time.strftime("%H:%M"))
@@ -34,35 +37,38 @@ with st.sidebar:
     st.header("👥 Employees")
     num_employees = st.number_input("Number of employees", min_value=1, value=max(len(st.session_state.employees), 3), key="num_emp")
     
-    # Keep employees in sync with session state
-    if len(st.session_state.employees) != num_employees:
-        while len(st.session_state.employees) < num_employees:
-            st.session_state.employees.append({"name": f"Employee {len(st.session_state.employees)+1}", "max_hours_week": 40, "off_requests": []})
-        while len(st.session_state.employees) > num_employees:
-            st.session_state.employees.pop()
+    # Sync employee list
+    current_len = len(st.session_state.employees)
+    if num_employees > current_len:
+        for _ in range(num_employees - current_len):
+            st.session_state.employees.append({"name": f"Employee {len(st.session_state.employees)+1}", 
+                                             "max_hours_week": 40, "off_requests": []})
+    elif num_employees < current_len:
+        st.session_state.employees = st.session_state.employees[:num_employees]
 
     for i in range(num_employees):
-        with st.expander(f"Employee {i+1}: {st.session_state.employees[i]['name']}"):
-            name = st.text_input("Name", value=st.session_state.employees[i]["name"], key=f"name_{i}")
-            max_hours = st.number_input("Max hours per week", min_value=1, value=st.session_state.employees[i]["max_hours_week"], key=f"hours_{i}")
-            off_days = st.multiselect("Days off this week", days, default=st.session_state.employees[i]["off_requests"], key=f"off_{i}")
+        emp = st.session_state.employees[i]
+        with st.expander(f"Employee {i+1}: {emp['name']}"):
+            name = st.text_input("Name", value=emp["name"], key=f"name_{i}")
+            max_hours = st.number_input("Max hours per week", min_value=1, value=emp["max_hours_week"], key=f"hours_{i}")
+            off_days = st.multiselect("Days off this week", days, default=emp["off_requests"], key=f"off_{i}")
             
             st.session_state.employees[i] = {"name": name, "max_hours_week": max_hours, "off_requests": off_days}
 
-# ====================== GENERATE SCHEDULE ======================
+# ====================== MAIN AREA ======================
 if st.button("🚀 Generate Schedule", type="primary"):
     if not st.session_state.employees:
         st.error("Please add at least one employee")
     else:
         with st.spinner("Creating schedule..."):
             schedule_data = []
-            start_date = datetime(2026, 7, 6)  # Change this date as needed
+            start_date = datetime(2026, 7, 6)
             
             for emp in st.session_state.employees:
                 row = {"Employee": emp["name"]}
-                total_hours = 0
+                total_hours = 0   # ← This was likely the line causing the error
                 
-                for i, day in enumerate(days):
+                for day in days:
                     if day in emp["off_requests"]:
                         row[day] = "OFF"
                         row[f"{day}_hours"] = 0
@@ -76,4 +82,35 @@ if st.button("🚀 Generate Schedule", type="primary"):
                         if assigned > 0:
                             row[day] = f"{open_t} - {close_t} ({assigned:.1f}h)"
                             row[f"{day}_hours"] = assigned
-                            total
+                            total_hours += assigned
+                        else:
+                            row[day] = "OFF (max hours)"
+                            row[f"{day}_hours"] = 0
+                
+                row["Total Hours"] = round(total_hours, 1)
+                schedule_data.append(row)
+            
+            df = pd.DataFrame(schedule_data)
+            st.session_state.generated_df = df
+            
+            st.success("✅ Schedule Generated!")
+            st.dataframe(df, use_container_width=True, height=500)
+            
+            # Download buttons
+            col1, col2 = st.columns(2)
+            with col1:
+                st.download_button("📥 Download CSV", df.to_csv(index=False).encode(), "schedule.csv", "text/csv")
+            with col2:
+                excel_buffer = pd.ExcelWriter("schedule.xlsx", engine="openpyxl")
+                df.to_excel(excel_buffer, index=False)
+                excel_buffer.close()
+                with open("schedule.xlsx", "rb") as f:
+                    st.download_button("📥 Download Excel", f, "schedule.xlsx", 
+                                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+# Show last generated schedule
+elif st.session_state.generated_df is not None:
+    st.success("✅ Previous Schedule")
+    st.dataframe(st.session_state.generated_df, use_container_width=True, height=500)
+
+st.info("💡 Changes are saved automatically in this session. Refresh the page to test.")

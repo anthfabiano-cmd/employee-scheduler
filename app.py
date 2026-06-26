@@ -6,7 +6,7 @@ import json
 
 st.set_page_config(page_title="Work Schedule Maker", layout="wide")
 st.title("🗓️ Employee Work Schedule Generator")
-st.markdown("**Download your settings** to save them permanently.")
+st.markdown("**Download & Upload** your settings to make them permanent.")
 
 # ====================== SESSION STATE ======================
 if 'business_hours' not in st.session_state:
@@ -18,25 +18,28 @@ if 'generated_df' not in st.session_state:
 
 days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
-# ====================== SAVE / LOAD (Download & Upload) ======================
+# ====================== SAVE / LOAD ======================
+st.subheader("💾 Save & Load Settings")
+
 col1, col2 = st.columns(2)
 
 with col1:
-    if st.button("💾 Download Settings (Save)"):
+    if st.button("💾 Prepare Download File", help="Click this first, then download"):
         save_data = {
             "business_hours": st.session_state.business_hours,
             "employees": st.session_state.employees
         }
-        json_str = json.dumps(save_data, indent=2)
+        json_str = json.dumps(save_data, indent=2, default=str)
         st.download_button(
-            label="⬇️ Click here to download settings.json",
+            label="⬇️ Download schedule_settings.json",
             data=json_str,
             file_name="schedule_settings.json",
-            mime="application/json"
+            mime="application/json",
+            key="download_json"
         )
 
 with col2:
-    uploaded_file = st.file_uploader("📂 Upload saved settings", type=["json"])
+    uploaded_file = st.file_uploader("📤 Upload your saved JSON file", type=["json"], key="uploader")
     if uploaded_file is not None:
         try:
             loaded = json.load(uploaded_file)
@@ -44,8 +47,8 @@ with col2:
             st.session_state.employees = loaded.get("employees", [])
             st.success("✅ Settings Loaded Successfully!")
             st.rerun()
-        except:
-            st.error("Invalid file. Please upload a valid settings.json")
+        except Exception as e:
+            st.error(f"Invalid file. Make sure you upload the correct schedule_settings.json file.\nError: {e}")
 
 # ====================== SIDEBAR ======================
 with st.sidebar:
@@ -97,7 +100,7 @@ if st.button("🚀 Generate Schedule", type="primary"):
                 total_hours = 0
                 
                 for day in days:
-                    if day in emp["off_requests"]:
+                    if day in emp.get("off_requests", []):
                         row[day] = "OFF"
                         row[f"{day}_hours"] = 0
                     else:
@@ -139,4 +142,4 @@ elif st.session_state.generated_df is not None:
     st.success("✅ Previous Schedule")
     st.dataframe(st.session_state.generated_df, use_container_width=True, height=500)
 
-st.info("✅ How to save permanently:\n1. Make your changes\n2. Click **Download Settings**\n3. After refresh, upload the file to load.")
+st.info("**How to save & load:**\n1. Make all your changes\n2. Click **Prepare Download File**\n3. Click the blue **Download** button\n4. Refresh page\n5. Upload the downloaded .json file")

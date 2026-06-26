@@ -2,10 +2,10 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from io import BytesIO
-import json
 
 st.set_page_config(page_title="Work Schedule Maker", layout="wide")
 st.title("🗓️ Employee Work Schedule Generator")
+st.markdown("**Settings stay during your session.** Use browser refresh carefully.")
 
 # ====================== SESSION STATE ======================
 if 'business_hours' not in st.session_state:
@@ -16,37 +16,6 @@ if 'generated_df' not in st.session_state:
     st.session_state.generated_df = None
 
 days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-
-# ====================== SAVE & LOAD ======================
-st.subheader("💾 Save & Load Settings")
-
-col1, col2 = st.columns(2)
-
-with col1:
-    if st.button("💾 Prepare Download File"):
-        save_data = {
-            "business_hours": st.session_state.business_hours,
-            "employees": st.session_state.employees
-        }
-        json_str = json.dumps(save_data, indent=2, default=str)
-        st.download_button(
-            label="⬇️ Download schedule_settings.json",
-            data=json_str,
-            file_name="schedule_settings.json",
-            mime="application/json"
-        )
-
-with col2:
-    uploaded_file = st.file_uploader("📤 Upload saved settings", type=["json"], key="json_uploader")
-    if uploaded_file is not None:
-        try:
-            loaded = json.load(uploaded_file)
-            st.session_state.business_hours = loaded.get("business_hours", {})
-            st.session_state.employees = loaded.get("employees", [])
-            st.success("✅ Settings Loaded! Refreshing...")
-            st.rerun()
-        except Exception as e:
-            st.error(f"Error loading file: {str(e)}")
 
 # ====================== SIDEBAR ======================
 with st.sidebar:
@@ -140,4 +109,4 @@ elif st.session_state.generated_df is not None:
     st.success("✅ Previous Schedule")
     st.dataframe(st.session_state.generated_df, use_container_width=True, height=500)
 
-st.info("**Save/Load Instructions:**\n1. Make changes\n2. Prepare Download → Download JSON\n3. Refresh page\n4. Upload JSON file (it should load automatically)")
+st.info("**Tip:** Your settings usually stay if you just refresh the page. For permanent saving, we can add Google Sheets later.")

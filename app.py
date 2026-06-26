@@ -6,7 +6,7 @@ import json
 
 st.set_page_config(page_title="Work Schedule Maker", layout="wide")
 st.title("🗓️ Employee Work Schedule Generator")
-st.markdown("**Save your settings** so they survive refresh!")
+st.markdown("**Download your settings** to save them permanently.")
 
 # ====================== SESSION STATE ======================
 if 'business_hours' not in st.session_state:
@@ -18,41 +18,46 @@ if 'generated_df' not in st.session_state:
 
 days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
-# ====================== SAVE / LOAD ======================
-col_save, col_load = st.columns(2)
-with col_save:
-    if st.button("💾 Save Current Settings"):
+# ====================== SAVE / LOAD (Download & Upload) ======================
+col1, col2 = st.columns(2)
+
+with col1:
+    if st.button("💾 Download Settings (Save)"):
         save_data = {
             "business_hours": st.session_state.business_hours,
             "employees": st.session_state.employees
         }
-        with open("saved_schedule.json", "w") as f:
-            json.dump(save_data, f)
-        st.success("✅ Settings Saved!")
+        json_str = json.dumps(save_data, indent=2)
+        st.download_button(
+            label="⬇️ Click here to download settings.json",
+            data=json_str,
+            file_name="schedule_settings.json",
+            mime="application/json"
+        )
 
-with col_load:
-    if st.button("📂 Load Saved Settings"):
+with col2:
+    uploaded_file = st.file_uploader("📂 Upload saved settings", type=["json"])
+    if uploaded_file is not None:
         try:
-            with open("saved_schedule.json", "r") as f:
-                loaded = json.load(f)
+            loaded = json.load(uploaded_file)
             st.session_state.business_hours = loaded.get("business_hours", {})
             st.session_state.employees = loaded.get("employees", [])
-            st.success("✅ Settings Loaded!")
+            st.success("✅ Settings Loaded Successfully!")
             st.rerun()
         except:
-            st.error("No saved file found. Save first.")
+            st.error("Invalid file. Please upload a valid settings.json")
 
 # ====================== SIDEBAR ======================
 with st.sidebar:
     st.header("📅 Business Hours")
     for day in days:
-        col1, col2 = st.columns(2)
-        with col1:
+        col_a, col_b = st.columns(2)
+        with col_a:
             default_open = datetime.strptime(
                 st.session_state.business_hours.get(day, ("09:00", "17:00"))[0], "%H:%M"
             ).time()
             open_time = st.time_input(f"{day} Open", value=default_open, key=f"open_{day}")
-        with col2:
+        with col_b:
             default_close = datetime.strptime(
                 st.session_state.business_hours.get(day, ("09:00", "17:00"))[1], "%H:%M"
             ).time()
@@ -80,10 +85,10 @@ with st.sidebar:
             
             st.session_state.employees[i] = {"name": name, "max_hours_week": max_hours, "off_requests": off_days}
 
-# ====================== GENERATE ======================
+# ====================== GENERATE SCHEDULE ======================
 if st.button("🚀 Generate Schedule", type="primary"):
     if not st.session_state.employees:
-        st.error("Add at least one employee")
+        st.error("Please add at least one employee")
     else:
         with st.spinner("Creating schedule..."):
             schedule_data = []
@@ -119,11 +124,10 @@ if st.button("🚀 Generate Schedule", type="primary"):
             st.success("✅ Schedule Generated!")
             st.dataframe(df, use_container_width=True, height=500)
 
-            # Downloads
-            col1, col2 = st.columns(2)
-            with col1:
+            col_dl1, col_dl2 = st.columns(2)
+            with col_dl1:
                 st.download_button("📥 Download CSV", df.to_csv(index=False).encode(), "schedule.csv", "text/csv")
-            with col2:
+            with col_dl2:
                 output = BytesIO()
                 with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                     df.to_excel(writer, index=False, sheet_name='Schedule')
@@ -135,4 +139,4 @@ elif st.session_state.generated_df is not None:
     st.success("✅ Previous Schedule")
     st.dataframe(st.session_state.generated_df, use_container_width=True, height=500)
 
-st.info("💡 Use **Save Current Settings** after making changes. Then use **Load** after refresh.")
+st.info("✅ How to save permanently:\n1. Make your changes\n2. Click **Download Settings**\n3. After refresh, upload the file to load.")

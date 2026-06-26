@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime
+from io import BytesIO
 
 st.set_page_config(page_title="Work Schedule Maker", layout="wide")
 st.title("🗓️ Employee Work Schedule Generator")
@@ -37,7 +38,6 @@ with st.sidebar:
     st.header("👥 Employees")
     num_employees = st.number_input("Number of employees", min_value=1, value=max(len(st.session_state.employees), 3), key="num_emp")
     
-    # Sync employee list
     current_len = len(st.session_state.employees)
     if num_employees > current_len:
         for _ in range(num_employees - current_len):
@@ -55,20 +55,20 @@ with st.sidebar:
             
             st.session_state.employees[i] = {"name": name, "max_hours_week": max_hours, "off_requests": off_days}
 
-# ====================== MAIN AREA ======================
+# ====================== GENERATE SCHEDULE ======================
 if st.button("🚀 Generate Schedule", type="primary"):
     if not st.session_state.employees:
         st.error("Please add at least one employee")
     else:
         with st.spinner("Creating schedule..."):
             schedule_data = []
-            start_date = datetime(2026, 7, 6)
+            days_list = days  # for clarity
             
             for emp in st.session_state.employees:
                 row = {"Employee": emp["name"]}
-                total_hours = 0   # ← This was likely the line causing the error
+                total_hours = 0
                 
-                for day in days:
+                for day in days_list:
                     if day in emp["off_requests"]:
                         row[day] = "OFF"
                         row[f"{day}_hours"] = 0
@@ -100,17 +100,23 @@ if st.button("🚀 Generate Schedule", type="primary"):
             col1, col2 = st.columns(2)
             with col1:
                 st.download_button("📥 Download CSV", df.to_csv(index=False).encode(), "schedule.csv", "text/csv")
+            
             with col2:
-                excel_buffer = pd.ExcelWriter("schedule.xlsx", engine="openpyxl")
-                df.to_excel(excel_buffer, index=False)
-                excel_buffer.close()
-                with open("schedule.xlsx", "rb") as f:
-                    st.download_button("📥 Download Excel", f, "schedule.xlsx", 
-                                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                # Improved Excel download using xlsxwriter + BytesIO
+                output = BytesIO()
+                with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                    df.to_excel(writer, index=False, sheet_name='Schedule')
+                output.seek(0)
+                
+                st.download_button(
+                    "📥 Download Excel",
+                    data=output,
+                    file_name="employee_schedule.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
 
-# Show last generated schedule
 elif st.session_state.generated_df is not None:
     st.success("✅ Previous Schedule")
     st.dataframe(st.session_state.generated_df, use_container_width=True, height=500)
 
-st.info("💡 Changes are saved automatically in this session. Refresh the page to test.")
+st.info("💡 Your settings persist on refresh. Excel download is now fixed!")

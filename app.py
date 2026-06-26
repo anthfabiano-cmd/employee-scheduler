@@ -14,8 +14,6 @@ if 'employees' not in st.session_state:
     st.session_state.employees = []
 if 'generated_df' not in st.session_state:
     st.session_state.generated_df = None
-if 'uploaded_json' not in st.session_state:
-    st.session_state.uploaded_json = None
 
 days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
@@ -36,28 +34,21 @@ with col1:
             data=json_str,
             file_name="schedule_settings.json",
             mime="application/json",
-            key="download_json_btn"
+            key="download_btn"
         )
 
 with col2:
-    uploaded_file = st.file_uploader("📤 Upload saved settings", type=["json"], key="json_uploader")
+    uploaded_file = st.file_uploader("📤 Upload your saved settings file", type=["json"], key="json_uploader")
     
     if uploaded_file is not None:
-        st.session_state.uploaded_json = uploaded_file
-        st.info("✅ File selected. Click the button below to load.")
-
-    if st.session_state.uploaded_json is not None:
-        if st.button("✅ Load This File", type="primary", key="load_button"):
-            try:
-                loaded = json.load(st.session_state.uploaded_json)
-                st.session_state.business_hours = loaded.get("business_hours", {})
-                st.session_state.employees = loaded.get("employees", [])
-                st.success("✅ Settings Loaded Successfully!")
-                st.session_state.uploaded_json = None
-                st.rerun()
-            except Exception as e:
-                st.error(f"Failed to load: {e}")
-                st.session_state.uploaded_json = None
+        try:
+            loaded = json.load(uploaded_file)
+            st.session_state.business_hours = loaded.get("business_hours", {})
+            st.session_state.employees = loaded.get("employees", [])
+            st.success("✅ Settings Loaded Successfully!")
+            st.rerun()   # This forces the page to refresh with new data
+        except Exception as e:
+            st.error(f"Error loading file: {e}")
 
 # ====================== SIDEBAR ======================
 with st.sidebar:
@@ -151,8 +142,4 @@ elif st.session_state.generated_df is not None:
     st.success("✅ Previous Schedule")
     st.dataframe(st.session_state.generated_df, use_container_width=True, height=500)
 
-st.info("""**How to Save & Load:**
-1. Make your changes
-2. Click **Prepare Download File** → Click the blue download button
-3. Refresh the page
-4. Upload the JSON file → Click **Load This File**""")
+st.info("**How to use:**\n1. Make changes → Prepare Download File → Download JSON\n2. Refresh page\n3. Upload the JSON file → It should load automatically")
